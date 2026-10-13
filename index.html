@@ -122,10 +122,13 @@ button.bd{border:0;cursor:pointer}
 .mb{width:36px;height:36px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer;font-size:16px}
 #gm{min-height:20px;font-size:14px}
 .lk{background:none;border:0;padding:0;font:600 15px Barlow,sans-serif;color:var(--ink);text-decoration:underline;cursor:pointer}
+.ha{display:flex;gap:8px;margin-top:10px}.ha[hidden]{display:none}
+.ha button{background:transparent;color:#fff;border:1px solid #fff;border-radius:6px;padding:6px 12px;font:600 13px Barlow,sans-serif;cursor:pointer}
+#lge{color:var(--red);font-size:14px;min-height:20px;margin-top:8px}
 </style>
 </head>
 <body>
-<header><h1>JKG · Panel de administración</h1><p>Supervisión de revisiones y gestión de la flota de maquinaria agrícola</p></header>
+<header><h1>JKG · Panel de administración</h1><p>Supervisión de revisiones y gestión de la flota de maquinaria agrícola</p><div class="ha" id="ha" hidden><button id="rf" type="button">Actualizar datos</button><button id="lo" type="button">Cerrar sesión</button></div></header>
 <nav><button class="on" data-t="res">Resumen</button><button data-t="rev">Revisiones</button><button data-t="ges">Gestión</button></nav>
 <main>
 <section class="sec on" id="res">
@@ -151,12 +154,20 @@ button.bd{border:0;cursor:pointer}
 </section>
 <section class="sec" id="ges"><div class="seg2" id="gseg" role="group" aria-label="Gestión"><button class="on" data-v="op">Operadores</button><button data-v="mq">Maquinaria</button><button data-v="it">Ítems</button></div><div id="gv"></div></section>
 </main>
+<div class="ov" id="lg" hidden><div class="gbox" role="dialog" aria-modal="true" aria-labelledby="lgt"><h2 id="lgt">Ingresar</h2><label for="em">Correo</label><input id="em" type="email" autocomplete="username"><label for="pw" style="margin-top:10px">Contraseña</label><input id="pw" type="password" autocomplete="current-password"><button class="cta" id="lgb" type="button" style="width:100%">Ingresar</button><div id="lge" role="alert"></div></div></div>
 <div class="ov" id="gd" hidden><div class="gbox" role="dialog" aria-modal="true" aria-labelledby="gt"><button class="gx" id="gx" aria-label="Cerrar">✕</button><h2 id="gt"></h2><div id="gs"></div></div></div>
 <script>
 const $=id=>document.getElementById(id),esc=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const SB="https://rztulumqlhojnfaqifbx.supabase.co",AK="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6dHVsdW1xbGhvam5mYXFpZmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NjI1NDIsImV4cCI6MjEwNzMzODU0Mn0.JhIkqovsa8GEX4T_5-0ISG8pfwBNs-65gd7cRd6G6h8";
+let SES=null;try{SES=JSON.parse(localStorage.getItem("jkg-ses")||"null")}catch(_){}
+const saveS=v=>{SES=v;try{v?localStorage.setItem("jkg-ses",JSON.stringify(v)):localStorage.removeItem("jkg-ses")}catch(_){}};
+async function auth(body,grant){const r=await fetch(SB+"/auth/v1/token?grant_type="+grant,{method:"POST",headers:{apikey:AK,"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.error_description||j.msg||"No se pudo iniciar sesión");saveS({t:j.access_token,r:j.refresh_token,e:Date.now()+(j.expires_in-60)*1000})}
+async function tok(){if(!SES)throw new Error("Sesión no iniciada");if(Date.now()>SES.e){try{await auth({refresh_token:SES.r},"refresh_token")}catch(e){saveS(null);showLogin();throw new Error("La sesión venció. Ingresa de nuevo.")}}return SES.t}
+async function api(path,o={}){const t=await tok(),r=await fetch(SB+"/rest/v1/"+path,{method:o.method||"GET",headers:{apikey:AK,Authorization:"Bearer "+t,"Content-Type":"application/json",Prefer:"return=representation"},body:o.body?JSON.stringify(o.body):undefined});
+  if(!r.ok){let m="Error "+r.status;try{m=(await r.json()).message||m}catch(_){}throw new Error(m)}return r.status===204?null:r.json()}
 const OPS=[];
-const FLEET=[["MF 01","VAL 01"]].concat(Array.from({length:14},(_,i)=>{const n=String(i+1).padStart(2,"0");return["JD "+n,"DEF "+n]}));
-const GTR=FLEET.map(f=>({c:f[0],a:true})),GIM=FLEET.map(f=>({c:f[1],a:true})).concat(["DEF 15","DEF 16","DEF 17"].map(c=>({c,a:false})));
+const FLEET=[];
+const GTR=[],GIM=[];
 const TRL=[],IML=[];function lists(){TRL.length=0;IML.length=0;GTR.filter(x=>x.a).forEach(x=>TRL.push(x.c));GIM.filter(x=>x.a).forEach(x=>IML.push(x.c))}lists();
 const ST={detener:["Detener el equipo","bad"],comunicar:["Comunicar al supervisor","warn"],solucionar:["Solucionar","ok"],apto:["Apto para operar","ok"]};
 const SH={detener:"Detener",comunicar:"Comunicar",solucionar:"Solucionar",apto:"Apto"},KEY=["apto","solucionar","comunicar","detener"];
@@ -193,7 +204,7 @@ function rows(){const fw=+$("fw").value,fe=$("fe").value,fm=$("fm").value,fo=$("
   $("rows").innerHTML=L.slice(0,150).map(r=>{const e=ST[key(r)];
     let h='<tr class="rw" data-id="'+r.id+'"><td>'+fd(r.ts)+'</td><td><b>'+r.t+" - "+r.d+'</b></td><td>'+r.op+'</td><td>'+r.turno+'</td><td>'+r.hr.toFixed(1)+'</td><td><span class="bd '+e[1]+'">'+e[0]+'</span></td><td>'+(r.fa.length?(r.at?'<span class="bd ok">Atendida</span>':'<span class="bd warn">Pendiente</span>'):'<span class="bd gr">Sin fallas</span>')+"</td></tr>";
     if(open.has(r.id))h+='<tr><td colspan="7" class="dt">'+(r.fa.length?r.fa.map(x=>'<p><span class="dm l'+x.c+'">'+"♦".repeat(x.c)+"</span><b>"+esc(x.q)+"</b> ("+x.k+"): "+esc(x.nota)+"</p>").join("")
-      +(r.at?'<p class="sub">Atendida: '+esc(r.acc)+"</p>":'<label for="ac'+r.id+'">¿Qué se hizo?</label><textarea id="ac'+r.id+'" rows="2"></textarea><button class="cta" data-a="'+r.id+'">Marcar atendida</button>'):'<p class="sub">Revisión sin fallas.</p>')+"</td></tr>";
+      +(r.at?'<p class="sub">Atendida: '+esc(r.acc)+"</p>":'<label for="ac'+r.id+'">¿Qué se hizo?</label><textarea id="ac'+r.id+'" rows="2"></textarea><button class="cta" data-a="'+r.id+'">Marcar atendida</button>'):'<p class="sub">Revisión sin fallas.</p>')+(r.otros?'<p class="sub">Otros: '+esc(r.otros)+"</p>":"")+"</td></tr>";
     return h}).join("")||'<tr><td colspan="7" class="sub">Aún no hay revisiones para mostrar.</td></tr>'}
 const GC=["var(--green)","var(--green)","var(--blue)","var(--red)"];
 function arc(d0,d1){const p=d=>{const r=d*Math.PI/180;return[100-80*Math.cos(r),100-80*Math.sin(r)].map(v=>v.toFixed(1))},a=p(d0),b=p(d1);return"M"+a[0]+" "+a[1]+"A80 80 0 0 1 "+b[0]+" "+b[1]}
@@ -231,18 +242,19 @@ $("res").addEventListener("click",e=>{
   const c=e.target.closest(".rb");if(c)$("sn").innerHTML='<div class="nt">Revisión pendiente: '+c.dataset.n+" aún no tiene revisión hoy.</div>"});
 $("gd").addEventListener("click",e=>{if(e.target.id==="gd")closeG();const v=e.target.closest("[data-v]");if(v){$("fm").value=v.dataset.v;$("fe").value="";$("fo").value="";$("fp").checked=false;$("fw").value=-1;closeG();rows();tab("rev")}});
 $("gx").onclick=closeG;document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeG();closeM()}});
-$("rows").addEventListener("click",e=>{
+$("rows").addEventListener("click",async e=>{
   const a=e.target.closest("[data-a]");
-  if(a){const id=+a.dataset.a,t=$("ac"+id).value.trim();if(!t){$("ac"+id).focus();return}const r=REV[id];r.at=true;r.acc=t;render();return}
+  if(a){const id=+a.dataset.a,t=$("ac"+id).value.trim();if(!t){$("ac"+id).focus();return}const r=REV.find(x=>x.id===id);
+    try{await api("revisiones?id=eq."+id,{method:"PATCH",body:{atendida:true,accion:t,atendida_en:new Date().toISOString()}});r.at=true;r.acc=t;render()}catch(er){$("cnt").textContent="No se pudo guardar: "+er.message}return}
   if(e.target.closest("textarea,label,.dt"))return;
   const tr=e.target.closest("tr.rw");if(!tr)return;const id=+tr.dataset.id;open.has(id)?open.delete(id):open.add(id);rows()});
 render();
 /* ===== Gestión ===== */
 const ea=x=>esc(x).replace(/"/g,"&quot;");
 const lines=t=>t.split(/\r?\n/).map(l=>l.split(/[,;\t]/).map(c=>c.trim())).filter(r=>r[0]&&!/^(nombre|operador|tractor)$/i.test(r[0]));
-const GOP=OPS.map(n=>({n,a:true}));
+const GOP=[];
 const SECS=["Estado general","Estado mecánico/eléctrico","Elementos de seguridad","Implemento"];
-const GIT=[["Estado general",[["Indicadores panel de instrumentos",3],["Faros principales",2],["Faros neblineros / Luces pirata",2],["Luces direccionales / de estacionamiento",2],["Luces de freno",2],["Luces de retroceso",2],["Luz estroboscópica (circulina)",2],["Neumáticos",2],["Cinturones de seguridad",2],["Alarma de retroceso",2],["Bocina",2],["Estructuras / Chasis",2],["Orden y limpieza",1]]],["Estado mecánico/eléctrico",[["Dirección",3],["Nivel de aceite del motor",3],["Nivel de líquido de frenos",3],["Nivel de refrigerante",3],["Nivel de aceite hidráulico",3],["Embrague / TDF",2],["Mangueras",2]]],["Elementos de seguridad",[["Conos reflectivos (2)",1],["Caja de herramientas",1],["Extintor",1],["Tacos de seguridad",1],["Espejos",1]]],["Implemento",[["Bombas",3],["Cardán / Empalmes - Acoples implemento",3],["Tanque",2],["Boquillas",2]]]].flatMap(([s,L])=>L.map(([n,c])=>({s,n,c,a:true})));
+const GIT=[];
 let gt="op";
 function fills(){const o=$("fo").value,m=$("fm").value;
   $("fo").innerHTML='<option value="">Todos</option>'+GOP.map(x=>x.n).sort().map(x=>"<option>"+esc(x)+"</option>").join("");$("fo").value=o;
@@ -259,22 +271,50 @@ function renderG(msg){
   else h=SECS.map(sc=>'<div class="card"><h2>'+(sc==="Implemento"?"":"Tractor · ")+sc+"</h2>"+GIT.map((x,i)=>x.s!==sc?"":'<div class="ir'+(x.a?"":" off")+'"><div class="in"><input data-s="itn" data-i="'+i+'" value="'+ea(x.n)+'" aria-label="Nombre del ítem"></div><select data-s="itc" data-i="'+i+'" aria-label="Criticidad">'+[1,2,3].map(c=>'<option value="'+c+'"'+(x.c===c?" selected":"")+">"+"♦".repeat(c)+"</option>").join("")+"</select>"+bt(x.a,"ittg",i)+'<button class="mb" data-g="itup" data-i="'+i+'" aria-label="Subir">↑</button><button class="mb" data-g="itdn" data-i="'+i+'" aria-label="Bajar">↓</button></div>').join("")+"</div>").join("")
     +'<div class="card"><h2>Agregar ítem</h2><label for="is">Sección</label><select id="is">'+SECS.map(sc=>"<option>"+sc+"</option>").join("")+'</select><label for="in2" style="margin-top:10px">Nombre</label><input id="in2" placeholder="Ej. Filtro de aire"><label for="ic" style="margin-top:10px">Criticidad</label><select id="ic"><option value="1">♦ Solución del operador</option><option value="2">♦♦ Comunicar al supervisor</option><option value="3">♦♦♦ Detener el equipo</option></select><button class="cta" data-g="additem">Agregar ítem</button></div>';
   $("gv").innerHTML='<div class="msg" id="gm" role="status"></div>'+h;if(msg)$("gm").textContent=msg}
-$("ges").addEventListener("click",e=>{
+async function loadAll(){
+  const [rv,op,mq,it]=await Promise.all([
+    api("revisiones?select=id,fecha,horometro,turno,otros,atendida,accion,operador:operadores(nombre),tractor:maquinaria!revisiones_tractor_id_fkey(codigo),implemento:maquinaria!revisiones_implemento_id_fkey(codigo),respuestas(estado,observacion,item:items_checklist(descripcion,criticidad,seccion))&order=fecha.desc&limit=1000"),
+    api("operadores?select=id,nombre,activo&order=nombre"),api("maquinaria?select=id,tipo,codigo,activo&order=codigo"),api("items_checklist?select=id,seccion,orden,criticidad,descripcion,activo&order=orden,id")]);
+  REV.length=0;rv.forEach(r=>{const fa=(r.respuestas||[]).filter(x=>x.estado==="falla"&&x.item).map(x=>({q:x.item.descripcion,c:x.item.criticidad,k:x.item.seccion==="Implemento"?"Implemento":"Tractor",nota:x.observacion||""}));
+    const m=k=>fa.filter(x=>x.k===k).reduce((a,x)=>Math.max(a,x.c),0);
+    REV.push({id:r.id,ts:new Date(r.fecha),t:r.tractor.codigo,d:r.implemento.codigo,op:r.operador.nombre,turno:r.turno,hr:+r.horometro,fa,top:fa.reduce((a,x)=>Math.max(a,x.c),0),tT:m("Tractor"),tI:m("Implemento"),at:r.atendida,acc:r.accion||"",otros:r.otros||""})});
+  GOP.length=0;op.forEach(o=>GOP.push({id:o.id,n:o.nombre,a:o.activo!==false}));
+  GTR.length=0;GIM.length=0;mq.forEach(m=>(m.tipo==="tractor"?GTR:GIM).push({id:m.id,c:m.codigo,a:m.activo!==false}));
+  GIT.length=0;it.forEach(i=>GIT.push({id:i.id,s:i.seccion,n:i.descripcion,c:i.criticidad,o:i.orden||0,a:i.activo!==false}));
+  lists();fills();render();renderG()}
+function showLogin(){$("lg").hidden=false;$("ha").hidden=true}
+async function start(){try{await loadAll();$("lg").hidden=true;$("ha").hidden=false}catch(e){showLogin();$("lge").textContent=e instanceof TypeError?"Sin conexión. Revisa tu internet.":e.message}}
+$("lgb").onclick=async()=>{$("lge").textContent="";try{await auth({email:$("em").value.trim(),password:$("pw").value},"password");$("pw").value=""}catch(e){$("lge").textContent=e instanceof TypeError?"Sin conexión. Revisa tu internet.":"Correo o contraseña incorrectos.";return}await start()};
+$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("lgb").click()});
+$("rf").onclick=start;
+$("lo").onclick=()=>{saveS(null);[REV,GOP,GTR,GIM,GIT].forEach(a=>a.length=0);lists();fills();render();renderG();showLogin()};
+$("ges").addEventListener("click",async e=>{
   const sv=e.target.closest("#gseg button");if(sv){gt=sv.dataset.v;renderG();return}
   const b=e.target.closest("[data-g]");if(!b)return;const g=b.dataset.g,i=+b.dataset.i;let m="";
-  if(g==="addop"){const n=$("no").value.trim();if(!n)m="Escribe un nombre.";else if(GOP.some(x=>x.n.toLowerCase()===n.toLowerCase()))m="Ese operador ya existe.";else{GOP.push({n,a:true});fills();m="Operador agregado: "+n}}
-  else if(g==="tgop"){GOP[i].a=!GOP[i].a}
-  else if(g==="impop"){const L=lines($("cop").value).map(r=>r[0]);if(!L.length)m="Pega al menos un nombre.";else{const set=new Set(L.map(x=>x.toLowerCase()));let nu=0,de=0,re=0;GOP.forEach(x=>{const k=set.has(x.n.toLowerCase());if(k&&!x.a)re++;if(!k&&x.a)de++;x.a=k});const ex=new Set(GOP.map(x=>x.n.toLowerCase()));L.forEach(n=>{if(!ex.has(n.toLowerCase())){GOP.push({n,a:true});ex.add(n.toLowerCase());nu++}});fills();m="Planilla importada: "+nu+" nuevos, "+re+" reactivados, "+de+" desactivados."}}
-  else if(g==="tgtr"){GTR[i].a=!GTR[i].a;rebuild()}
-  else if(g==="tgim"){GIM[i].a=!GIM[i].a;rebuild()}
-  else if(g==="ittg"){GIT[i].a=!GIT[i].a}
-  else if(g==="itup"||g==="itdn"){const d=g==="itup"?-1:1;let j=i+d;while(j>=0&&j<GIT.length&&GIT[j].s!==GIT[i].s)j+=d;if(j>=0&&j<GIT.length){const x=GIT[i];GIT[i]=GIT[j];GIT[j]=x}}
-  else if(g==="additem"){const n=$("in2").value.trim();if(!n)m="Escribe el nombre del ítem.";else{GIT.push({s:$("is").value,n,c:+$("ic").value,a:true});m="Ítem agregado: "+n}}
+  try{
+    if(g==="addop"){const n=$("no").value.trim();if(!n)m="Escribe un nombre.";else if(GOP.some(x=>x.n.toLowerCase()===n.toLowerCase()))m="Ese operador ya existe.";else{const r=await api("operadores",{method:"POST",body:{nombre:n,activo:true}});GOP.push({id:r[0].id,n,a:true});fills();m="Operador agregado: "+n}}
+    else if(g==="tgop"){const x=GOP[i];await api("operadores?id=eq."+x.id,{method:"PATCH",body:{activo:!x.a}});x.a=!x.a}
+    else if(g==="impop"){const L=lines($("cop").value).map(r=>r[0]);if(!L.length)m="Pega al menos un nombre.";else{
+      const set=new Set(L.map(x=>x.toLowerCase())),ex=new Set(GOP.map(x=>x.n.toLowerCase()));
+      const nu=L.filter((n,k)=>!ex.has(n.toLowerCase())&&L.findIndex(y=>y.toLowerCase()===n.toLowerCase())===k),re=GOP.filter(x=>set.has(x.n.toLowerCase())&&!x.a),de=GOP.filter(x=>!set.has(x.n.toLowerCase())&&x.a);
+      if(de.length&&!confirm("Se desactivarán "+de.length+" operadores que no están en la planilla. ¿Continuar?"))return;
+      if(nu.length){const r=await api("operadores",{method:"POST",body:nu.map(n=>({nombre:n,activo:true}))});r.forEach(o=>GOP.push({id:o.id,n:o.nombre,a:true}))}
+      if(re.length){await api("operadores?id=in.("+re.map(x=>x.id).join(",")+")",{method:"PATCH",body:{activo:true}});re.forEach(x=>x.a=true)}
+      if(de.length){await api("operadores?id=in.("+de.map(x=>x.id).join(",")+")",{method:"PATCH",body:{activo:false}});de.forEach(x=>x.a=false)}
+      fills();m="Planilla importada: "+nu.length+" nuevos, "+re.length+" reactivados, "+de.length+" desactivados."}}
+    else if(g==="tgtr"||g==="tgim"){const x=(g==="tgtr"?GTR:GIM)[i];await api("maquinaria?id=eq."+x.id,{method:"PATCH",body:{activo:!x.a}});x.a=!x.a;rebuild()}
+    else if(g==="ittg"){const x=GIT[i];await api("items_checklist?id=eq."+x.id,{method:"PATCH",body:{activo:!x.a}});x.a=!x.a}
+    else if(g==="itup"||g==="itdn"){const d=g==="itup"?-1:1;let j=i+d;while(j>=0&&j<GIT.length&&GIT[j].s!==GIT[i].s)j+=d;
+      if(j>=0&&j<GIT.length){const a=GIT[i],c=GIT[j];await api("items_checklist?id=eq."+a.id,{method:"PATCH",body:{orden:c.o}});await api("items_checklist?id=eq."+c.id,{method:"PATCH",body:{orden:a.o}});const o=a.o;a.o=c.o;c.o=o;GIT[i]=c;GIT[j]=a}}
+    else if(g==="additem"){const n=$("in2").value.trim();if(!n)m="Escribe el nombre del ítem.";else{const o=GIT.reduce((a,x)=>Math.max(a,x.o),0)+1,r=await api("items_checklist",{method:"POST",body:{seccion:$("is").value,descripcion:n,criticidad:+$("ic").value,orden:o,activo:true}});GIT.push({id:r[0].id,s:$("is").value,n,c:+$("ic").value,o,a:true});m="Ítem agregado: "+n}}
+  }catch(er){m="No se pudo guardar: "+er.message}
   renderG(m)});
-$("ges").addEventListener("change",e=>{const t=e.target,k=t.dataset.s;if(!k)return;const i=+t.dataset.i;
-  if(k==="itc"){GIT[i].c=+t.value;$("gm").textContent="Criticidad actualizada."}
-  else if(k==="itn"){const v=t.value.trim();if(v){GIT[i].n=v;$("gm").textContent="Nombre actualizado."}else t.value=GIT[i].n}});
+$("ges").addEventListener("change",async e=>{const t=e.target,k=t.dataset.s;if(!k)return;const x=GIT[+t.dataset.i],mm=$("gm");
+  try{if(k==="itc"){await api("items_checklist?id=eq."+x.id,{method:"PATCH",body:{criticidad:+t.value}});x.c=+t.value;mm.textContent="Criticidad actualizada."}
+    else if(k==="itn"){const v=t.value.trim();if(!v){t.value=x.n;return}await api("items_checklist?id=eq."+x.id,{method:"PATCH",body:{descripcion:v}});x.n=v;mm.textContent="Nombre actualizado."}}
+  catch(er){mm.textContent="No se pudo guardar: "+er.message;t.value=k==="itn"?x.n:x.c}});
 renderG();
+if(SES)start();else showLogin();
 </script>
 </body>
 </html>
