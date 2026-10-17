@@ -125,6 +125,16 @@ button.bd{border:0;cursor:pointer}
 .ha{display:flex;gap:8px;margin-top:10px}.ha[hidden]{display:none}
 .ha button{background:transparent;color:#fff;border:1px solid #fff;border-radius:6px;padding:6px 12px;font:600 13px Barlow,sans-serif;cursor:pointer}
 #lge{color:var(--red);font-size:14px;min-height:20px;margin-top:8px}
+.lab{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.lc{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--card)}
+.lm{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+.lm small{font-size:12px;color:var(--mute)}
+.lm .lk{font:700 22px/1.1 'Barlow Condensed',Impact,sans-serif;text-decoration:none}
+.es{font-size:13px;font-weight:600}.es.ok{color:var(--green)}.es.bad{color:var(--red)}
+.nv{font-size:13px}
+button.stat{width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+button.stat:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.li{padding:8px 0;border-top:1px solid var(--line)}.li:first-child{border-top:0}
 </style>
 </head>
 <body>
@@ -133,7 +143,7 @@ button.bd{border:0;cursor:pointer}
 <main>
 <section class="sec on" id="res">
   <div class="card"><h2 id="lt"></h2>
-    <div class="tw"><table class="sm"><thead><tr><th>Tractor</th><th>Estado</th><th>Implemento</th><th>Estado</th></tr></thead><tbody id="labr"></tbody></table></div>
+    <div class="lab" id="labr"></div>
     <p class="sub">Toca el código de una máquina para ver su estado.</p></div>
   <div class="stats" id="stats"></div>
   <div class="card"><h2>MAQUINARIA SIN REVISAR</h2><div id="a1"></div><div id="sin"></div><div id="sn"></div></div>
@@ -145,7 +155,7 @@ button.bd{border:0;cursor:pointer}
 <section class="sec" id="rev">
   <div class="card"><div class="flt">
     <div><label for="fw">Semana</label><select id="fw"></select></div>
-    <div><label for="fe">Estado</label><select id="fe"><option value="">Todos</option><option value="detener">Detener el equipo</option><option value="comunicar">Comunicar al supervisor</option><option value="solucionar">Solucionar</option><option value="apto">Apto para operar</option></select></div>
+    <div><label for="fe">Estado</label><select id="fe"><option value="">Todos</option><option value="detener">Detener el equipo</option><option value="apto">Apto para operar</option></select></div>
     <div><label for="fm">Tractor</label><select id="fm"></select></div>
     <div><label for="fo">Operador</label><select id="fo"></select></div>
     <label class="ck"><input type="checkbox" id="fp"> Solo pendientes</label>
@@ -169,23 +179,28 @@ const OPS=[];
 const FLEET=[];
 const GTR=[],GIM=[];
 const TRL=[],IML=[];function lists(){TRL.length=0;IML.length=0;GTR.filter(x=>x.a).forEach(x=>TRL.push(x.c));GIM.filter(x=>x.a).forEach(x=>IML.push(x.c))}lists();
-const ST={detener:["Detener el equipo","bad"],comunicar:["Comunicar al supervisor","warn"],solucionar:["Solucionar","ok"],apto:["Apto para operar","ok"]};
-const SH={detener:"Detener",comunicar:"Comunicar",solucionar:"Solucionar",apto:"Apto"},KEY=["apto","solucionar","comunicar","detener"];
+const ST={detener:["Detener el equipo","bad"],apto:["Apto para operar","ok"]};
+const SH={detener:"Detener",apto:"Apto"},KEY=["apto","apto","apto","detener"];
 const base=new Date();base.setHours(0,0,0,0);
 const REV=[];
 const p2=n=>String(n).padStart(2,"0"),fs=d=>p2(d.getDate())+"-"+p2(d.getMonth()+1)+"-"+String(d.getFullYear()).slice(2);
 const fd=d=>fs(d)+" "+p2(d.getHours())+":"+p2(d.getMinutes());
 const WK=[0,1,2,3].map(i=>{const a=new Date(base);a.setDate(a.getDate()-(a.getDay()+6)%7-7*i);const b=new Date(a);b.setDate(b.getDate()+7);const e=new Date(a);e.setDate(e.getDate()+6);return{a,b,l:"Semana del "+fs(a)+" al "+fs(e)}});
-let wi=0,sk="t";const key=r=>KEY[r.top],open=new Set();
+let wi=0,sk="t",LD={eq:[],pf:[]};const key=r=>KEY[r.top],open=new Set();
 function render(){
   const hoy=REV.filter(r=>r.ts>=base),mp={},mi={};hoy.forEach(r=>{mp[r.t]=r;mi[r.d]=r});
   const tile=(ty,c,r)=>{const k=r?KEY[ty==="t"?r.tT:r.tI]:"none";return '<button class="tile '+(r?ST[k][1]:"none")+'" data-ty="'+ty+'" data-c="'+c+'"><b>'+c+'</b><i>'+(r?SH[k]:"Sin revisión")+'</i></button>'};
   $("lt").textContent="LABOR DE HOY - "+fs(base);
-  $("labr").innerHTML=hoy.slice().sort((a,b)=>a.t.localeCompare(b.t)).map(r=>'<tr><td><button class="lk" data-ty="t" data-c="'+r.t+'">'+r.t+"</button></td><td>"+ST[KEY[r.tT]][0]+'</td><td><button class="lk" data-ty="i" data-c="'+r.d+'">'+r.d+"</button></td><td>"+ST[KEY[r.tI]][0]+"</td></tr>").join("")||'<tr><td colspan="4" class="sub">Aún no hay revisiones hoy.</td></tr>';
-  const det=REV.filter(r=>r.top===3&&!r.at),pen=REV.filter(r=>!r.at).reduce((s,r)=>s+r.fa.length,0);
+  const LT=["Sin fallas","Solucionar","Comunicar al supervisor","Solicitar asistencia"];
+  const mc=(ty,c,v)=>{const e=ST[KEY[v]];return '<div class="lm"><small>'+(ty==="t"?"Tractor":"Implemento")+'</small><button class="lk" data-ty="'+ty+'" data-c="'+c+'">'+c+'</button><span class="es '+e[1]+'">'+e[0]+'</span><span class="nv">'+(v?'<span class="dm l'+v+'">'+"♦".repeat(v)+"</span> ":"")+LT[v]+"</span></div>"};
+  $("labr").innerHTML=hoy.slice().sort((a,b)=>a.t.localeCompare(b.t)).map(r=>'<div class="lc">'+mc("t",r.t,r.tT)+mc("i",r.d,r.tI)+"</div>").join("")||'<p class="sub">Aún no hay revisiones hoy.</p>';
+  const det=REV.filter(r=>r.top===3&&!r.at);
+  const PF=[];REV.filter(r=>!r.at).forEach(r=>r.fa.forEach(f=>PF.push({c:f.c,q:f.q,nota:f.nota,ts:r.ts,m:f.k==="Tractor"?r.t:r.d,k:f.k})));PF.sort((a,b)=>b.c-a.c||b.ts-a.ts);
+  const EQ=new Map();PF.filter(f=>f.c===3).forEach(f=>{const e=EQ.get(f.m)||{m:f.m,k:f.k,fa:[]};e.fa.push(f);EQ.set(f.m,e)});LD={eq:[...EQ.values()],pf:PF};
+  const pen=PF.length;
   const w7=new Date(base);w7.setDate(w7.getDate()-6);const l7=REV.filter(r=>r.ts>=w7),tf=l7.reduce((s,r)=>s+r.fa.length,0),af=l7.filter(r=>r.at).reduce((s,r)=>s+r.fa.length,0);
-  const S=[["",hoy.length+" de "+TRL.length,"Revisiones de hoy"],[det.length?"bad":"",det.length,"Equipos por detener por fallas sin atender"],[pen?"warn":"",pen,"Fallas pendientes"],["",tf?Math.round(af/tf*100)+"%":"—","Fallas solucionadas en los últimos 7 días"]];
-  $("stats").innerHTML=S.map(s=>'<div class="stat '+s[0]+'"><b>'+s[1]+'</b><span>'+s[2]+'</span></div>').join("");
+  const S=[["",hoy.length+" de "+TRL.length,"Revisiones de hoy"],[EQ.size?"bad":"",EQ.size,"Equipos por detener","eq"],[pen?"warn":"",pen,"Fallas sin atender","pf"],["",tf?Math.round(af/tf*100)+"%":"—","Fallas solucionadas en los últimos 7 días"]];
+  $("stats").innerHTML=S.map(s=>s[3]?'<button class="stat '+s[0]+'" data-k="'+s[3]+'"><b>'+s[1]+'</b><span>'+s[2]+' · ver detalle</span></button>':'<div class="stat '+s[0]+'"><b>'+s[1]+'</b><span>'+s[2]+"</span></div>").join("");
   $("a1").innerHTML=det.map(r=>'<div class="al bad"><span><b>'+r.t+" - "+r.d+"</b>: "+r.fa.filter(x=>x.c===3).map(x=>esc(x.q)).join(", ")+" (♦♦♦) sin atender desde "+fd(r.ts)+"</span></div>").join("");
   const sT=TRL.filter(c=>!mp[c]),sI=IML.filter(c=>!mi[c]);
   const grp=(t,L,pre)=>"<div><h3>"+t+'</h3><div class="rc">'+(L.length?L.map(c=>'<button class="rb" data-n="'+pre+" "+c+'">'+c+"</button>").join(""):'<span class="sub">Ninguno</span>')+"</div></div>";
@@ -206,23 +221,40 @@ function rows(){const fw=+$("fw").value,fe=$("fe").value,fm=$("fm").value,fo=$("
     if(open.has(r.id))h+='<tr><td colspan="7" class="dt">'+(r.fa.length?r.fa.map(x=>'<p><span class="dm l'+x.c+'">'+"♦".repeat(x.c)+"</span><b>"+esc(x.q)+"</b> ("+x.k+"): "+esc(x.nota)+"</p>").join("")
       +(r.at?'<p class="sub">Atendida: '+esc(r.acc)+"</p>":'<label for="ac'+r.id+'">¿Qué se hizo?</label><textarea id="ac'+r.id+'" rows="2"></textarea><button class="cta" data-a="'+r.id+'">Marcar atendida</button>'):'<p class="sub">Revisión sin fallas.</p>')+(r.otros?'<p class="sub">Otros: '+esc(r.otros)+"</p>":"")+"</td></tr>";
     return h}).join("")||'<tr><td colspan="7" class="sub">Aún no hay revisiones para mostrar.</td></tr>'}
-const GC=["var(--green)","var(--green)","var(--blue)","var(--red)"];
-function arc(d0,d1){const p=d=>{const r=d*Math.PI/180;return[100-80*Math.cos(r),100-80*Math.sin(r)].map(v=>v.toFixed(1))},a=p(d0),b=p(d1);return"M"+a[0]+" "+a[1]+"A80 80 0 0 1 "+b[0]+" "+b[1]}
-function gauge(idx){let h='<svg viewBox="0 0 200 118" style="width:100%;max-width:300px;display:block;margin:0 auto" role="img" aria-label="Velocímetro de estado">';
-  if(idx<0)h+='<path d="'+arc(1,179)+'" fill="none" stroke="var(--mute)" stroke-width="18" stroke-dasharray="6 6" opacity=".6"/>';
-  else{for(let i=0;i<4;i++)h+='<path d="'+arc(i*45+1.5,i*45+43.5)+'" fill="none" stroke="'+GC[i]+'" stroke-width="18" opacity="'+(i===idx?1:.22)+'"/>';
-    const r=(idx*45+22.5)*Math.PI/180;h+='<line x1="100" y1="100" x2="'+(100-64*Math.cos(r)).toFixed(1)+'" y2="'+(100-64*Math.sin(r)).toFixed(1)+'" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><circle cx="100" cy="100" r="7" fill="var(--ink)"/>'}
+const ZC=["var(--red)","var(--blue)","var(--green)"],NA2=[170,135,90,30],PCTG=[100,75,50,25];
+function gauge(idx){
+  const cx=120,cy=112,R=84,P=(d,r)=>[cx-r*Math.cos(d*Math.PI/180),cy-r*Math.sin(d*Math.PI/180)],f1=v=>v.toFixed(1);
+  const arc=(a,b,r)=>{const A=P(a,r),B=P(b,r);return"M"+f1(A[0])+" "+f1(A[1])+"A"+r+" "+r+" 0 0 1 "+f1(B[0])+" "+f1(B[1])},zi=idx<0?-1:idx===3?0:idx===2?1:2;
+  let h='<svg viewBox="0 0 240 158" style="width:100%;max-width:330px;display:block;margin:0 auto" role="img" aria-label="Velocímetro de criticidad">';
+  for(let d=0;d<=180;d+=15){const a=P(d,97),b=P(d,d%60===0?105:101);h+='<line x1="'+f1(a[0])+'" y1="'+f1(a[1])+'" x2="'+f1(b[0])+'" y2="'+f1(b[1])+'" stroke="var(--line)" stroke-width="'+(d%60===0?2:1)+'" stroke-linecap="round"/>'}
+  h+='<path d="'+arc(0,180,R)+'" fill="none" stroke="var(--line)" stroke-width="18" opacity=".35"/>';
+  if(zi<0)h+='<path d="'+arc(3,177,R)+'" fill="none" stroke="var(--mute)" stroke-width="12" stroke-dasharray="5 7" opacity=".6"/>';
+  else for(let i=0;i<3;i++)h+='<path d="'+arc(i*60+4,i*60+56,R)+'" fill="none" stroke="'+ZC[i]+'" stroke-width="13" stroke-linecap="round" opacity="'+(i===zi?1:.22)+'"/>';
+  [[3,30],[2,90],[1,150]].forEach(([n,d],i)=>{const q=P(d,119);h+='<text x="'+f1(q[0])+'" y="'+f1(q[1])+'" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="'+(i===zi?"var(--ink)":"var(--mute)")+'">'+"♦".repeat(n)+"</text>"});
+  if(zi>=0){const a=NA2[idx]*Math.PI/180,tx=cx-72*Math.cos(a),ty=cy-72*Math.sin(a),px=Math.sin(a)*5,py=-Math.cos(a)*5;
+    h+='<polygon points="'+f1(cx+px)+","+f1(cy+py)+" "+f1(tx)+","+f1(ty)+" "+f1(cx-px)+","+f1(cy-py)+'" fill="var(--ink)"/>'}
+  h+='<circle cx="'+cx+'" cy="'+cy+'" r="9" fill="var(--card)" stroke="var(--ink)" stroke-width="3"/><circle cx="'+cx+'" cy="'+cy+'" r="2.5" fill="var(--ink)"/>';
+  h+='<text x="'+cx+'" y="150" text-anchor="middle" font-size="24" font-weight="700" fill="var(--ink)" style="font-family:\'Barlow Condensed\',Impact,sans-serif">'+(idx<0?"—":PCTG[idx]+"%")+"</text>";
   return h+"</svg>"}
+const LV=["Sin fallas","♦ Solución responsabilidad del operador","♦♦ Comunicar al supervisor y continuar operando","♦♦♦ Detener el equipo y solicitar asistencia"];
 function openG(ty,c){
   const r=REV.find(x=>(ty==="t"?x.t:x.d)===c&&x.ts>=base),idx=r?(ty==="t"?r.tT:r.tI):-1,sec=ty==="t"?"Tractor":"Implemento";
-  const P=REV.filter(x=>(ty==="t"?x.t:x.d)===c&&!x.at).flatMap(x=>x.fa.filter(f=>f.k===sec).map(f=>({q:f.q,c:f.c,nota:f.nota,ts:x.ts})));
-  const Zl=["Apto para operar","Solucionar","Comunicar al supervisor","Detener el equipo"],Zc=["ok","ok","warn","bad"];
+  const T=r?r.fa.filter(f=>f.k===sec).sort((a,b)=>b.c-a.c):[];
+  const O=REV.filter(x=>(ty==="t"?x.t:x.d)===c&&!x.at&&x!==r).flatMap(x=>x.fa.filter(f=>f.k===sec).map(f=>({q:f.q,c:f.c,nota:f.nota,ts:x.ts}))).sort((a,b)=>b.c-a.c||b.ts-a.ts);
+  const st=idx>=0?ST[KEY[idx]]:null,li=f=>'<p class="gp"><span class="dm l'+f.c+'">'+"♦".repeat(f.c)+"</span><b>"+esc(f.q)+"</b>"+(f.ts?" ("+fs(f.ts)+")":"")+": "+esc(f.nota)+"</p>";
   $("gt").textContent=(ty==="t"?"Tractor ":"Implemento ")+c;
-  let h=gauge(idx)+'<div class="gl '+(idx>=0?Zc[idx]:"")+'">'+(idx>=0?Zl[idx]:"Revisión pendiente")+"</div>";
+  let h=gauge(idx)+'<div class="gl '+(st?st[1]:"")+'">'+(st?st[0]:"Revisión pendiente")+"</div>"+(idx>=0?'<p class="sub" style="text-align:center;margin:-4px 0 8px">'+LV[idx]+"</p>":"");
   if(!r)h+='<div class="nt">Hoy aún no tiene revisión.</div>';
-  h+=P.length?"<h3>Fallas pendientes por solucionar ("+P.length+")</h3>"+P.map(f=>'<p class="gp"><span class="dm l'+f.c+'">'+"♦".repeat(f.c)+"</span><b>"+esc(f.q)+"</b> ("+fs(f.ts)+"): "+esc(f.nota)+"</p>").join(""):'<div class="al ok">'+(r?"Todo en orden, sin fallas pendientes.":"Sin fallas pendientes de días anteriores.")+"</div>";
+  else h+="<h3>Motivo del estado</h3>"+(T.length?T.map(li).join(""):'<div class="al ok">Sin fallas: la máquina está 100% bien.</div>');
+  if(O.length)h+="<h3>Fallas pendientes de días anteriores ("+O.length+")</h3>"+O.map(li).join("");
   if(ty==="t")h+='<button class="cta" data-v="'+c+'" style="width:100%">Ver revisiones de este tractor</button>';
   $("gs").innerHTML=h;$("gd").hidden=false;$("gx").focus()}
+function openL(k){
+  $("gt").textContent=k==="eq"?"Equipos por detener":"Fallas sin atender";
+  const dt=f=>' <span class="sub">('+fd(f.ts)+")</span>";
+  $("gs").innerHTML=k==="eq"?(LD.eq.length?LD.eq.map(e=>'<div class="li"><b>'+e.m+'</b> <span class="sub">('+e.k+")</span>"+e.fa.map(f=>'<p class="gp"><span class="dm l3">♦♦♦</span><b>'+esc(f.q)+"</b>: "+esc(f.nota)+dt(f)+"</p>").join("")+"</div>").join(""):'<div class="al ok">No hay equipos por detener.</div>')
+   :(LD.pf.length?LD.pf.map(f=>'<p class="gp"><span class="dm l'+f.c+'">'+"♦".repeat(f.c)+"</span><b>"+esc(f.q)+"</b> — "+f.m+" ("+f.k+"): "+esc(f.nota)+dt(f)+"</p>").join(""):'<div class="al ok">No hay fallas sin atender.</div>');
+  $("gd").hidden=false;$("gx").focus()}
 const closeG=()=>{$("gd").hidden=true};
 function tab(t){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("on",s.id===t));window.scrollTo(0,0)}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
@@ -239,6 +271,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".dd"))closeM()});
 document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{sk=b.dataset.k;document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));render()});
 $("res").addEventListener("click",e=>{
   const t=e.target.closest(".lk");if(t){openG(t.dataset.ty,t.dataset.c);return}
+  const sx=e.target.closest(".stat[data-k]");if(sx){openL(sx.dataset.k);return}
   const c=e.target.closest(".rb");if(c)$("sn").innerHTML='<div class="nt">Revisión pendiente: '+c.dataset.n+" aún no tiene revisión hoy.</div>"});
 $("gd").addEventListener("click",e=>{if(e.target.id==="gd")closeG();const v=e.target.closest("[data-v]");if(v){$("fm").value=v.dataset.v;$("fe").value="";$("fo").value="";$("fp").checked=false;$("fw").value=-1;closeG();rows();tab("rev")}});
 $("gx").onclick=closeG;document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeG();closeM()}});
@@ -269,7 +302,7 @@ function renderG(msg){
     +'<div class="card"><h2>Operadores ('+GOP.filter(x=>x.a).length+" activos de "+GOP.length+')</h2><table class="sm"><thead><tr><th>Nombre</th><th>Estado</th></tr></thead><tbody>'+(GOP.map((x,i)=>"<tr><td>"+esc(x.n)+"</td><td>"+bt(x.a,"tgop",i)+"</td></tr>").join("")||'<tr><td colspan="2" class="sub">Aún no hay operadores. Agrégalos o importa la planilla.</td></tr>')+"</tbody></table></div>";
   else if(gt==="mq")h='<div class="g2"><div class="card"><h2>Tractores</h2><table class="sm"><thead><tr><th>Tractor</th><th>Estado</th></tr></thead><tbody>'+GTR.map((t,i)=>"<tr><td><b>"+t.c+"</b></td><td>"+bt(t.a,"tgtr",i,1)+"</td></tr>").join("")+'</tbody></table></div><div class="card"><h2>Implementos</h2><table class="sm"><thead><tr><th>Implemento</th><th>Estado</th></tr></thead><tbody>'+GIM.map((m,i)=>"<tr><td><b>"+m.c+"</b></td><td>"+bt(m.a,"tgim",i,1)+"</td></tr>").join("")+"</tbody></table></div></div>";
   else h=SECS.map(sc=>'<div class="card"><h2>'+(sc==="Implemento"?"":"Tractor · ")+sc+"</h2>"+GIT.map((x,i)=>x.s!==sc?"":'<div class="ir'+(x.a?"":" off")+'"><div class="in"><input data-s="itn" data-i="'+i+'" value="'+ea(x.n)+'" aria-label="Nombre del ítem"></div><select data-s="itc" data-i="'+i+'" aria-label="Criticidad">'+[1,2,3].map(c=>'<option value="'+c+'"'+(x.c===c?" selected":"")+">"+"♦".repeat(c)+"</option>").join("")+"</select>"+bt(x.a,"ittg",i)+'<button class="mb" data-g="itup" data-i="'+i+'" aria-label="Subir">↑</button><button class="mb" data-g="itdn" data-i="'+i+'" aria-label="Bajar">↓</button></div>').join("")+"</div>").join("")
-    +'<div class="card"><h2>Agregar ítem</h2><label for="is">Sección</label><select id="is">'+SECS.map(sc=>"<option>"+sc+"</option>").join("")+'</select><label for="in2" style="margin-top:10px">Nombre</label><input id="in2" placeholder="Ej. Filtro de aire"><label for="ic" style="margin-top:10px">Criticidad</label><select id="ic"><option value="1">♦ Solución del operador</option><option value="2">♦♦ Comunicar al supervisor</option><option value="3">♦♦♦ Detener el equipo</option></select><button class="cta" data-g="additem">Agregar ítem</button></div>';
+    +'<div class="card"><h2>Agregar ítem</h2><label for="is">Sección</label><select id="is">'+SECS.map(sc=>"<option>"+sc+"</option>").join("")+'</select><label for="in2" style="margin-top:10px">Nombre</label><input id="in2" placeholder="Ej. Filtro de aire"><label for="ic" style="margin-top:10px">Criticidad</label><select id="ic"><option value="1">♦ Solución responsabilidad del operador</option><option value="2">♦♦ Comunicar al supervisor y continuar operando</option><option value="3">♦♦♦ Detener el equipo y solicitar asistencia</option></select><button class="cta" data-g="additem">Agregar ítem</button></div>';
   $("gv").innerHTML='<div class="msg" id="gm" role="status"></div>'+h;if(msg)$("gm").textContent=msg}
 async function loadAll(){
   const [rv,op,mq,it]=await Promise.all([
